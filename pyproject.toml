@@ -1,0 +1,118 @@
+[build-system]
+requires = ["poetry-core>=1.2.0", "wheel", ]
+build-backend = "poetry.core.masonry.api"
+
+
+
+[tool.poetry]
+name = "neural-operator-tl"
+version = "0.0.0"
+description = "A project containing the application of neural operator learning to acousic metamaterials, namely sonic crystals."
+
+authors = ["Jakob Wagner <mail@jakob-wagner.com>", ]
+maintainers = ["Jakob Wagner <mail@jakob-wagner.com>", ]
+
+include = ["CHANGELOG.md", "LICENSE", ]
+license = "MIT"
+readme = "README.md"
+
+
+repository = "https://github.com/JakobEliasWagner/Neural-Operator-TL"
+
+keywords = [
+    "python3",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.10"
+ipykernel = "^6.22.0"
+jupytext = "^1.14.5"
+nbconvert = "^7.7.3"
+seaborn = "^0.13.2"
+loguru = "^0.7.0"
+continuiti = {git = "https://github.com/aai-institute/continuiti.git", rev = "228802be4f1954b2334e2e343e3d1116c3a666c6"}
+
+[tool.poetry.group.dev]
+optional = true
+
+[tool.poetry.group.dev.dependencies]
+mypy = ">=1.11.1"
+
+[tool.poetry.group.linters]
+optional = true
+
+[tool.poetry.group.linters.dependencies]
+ruff = ">=0.5.6"
+
+[tool.poetry.group.tests]
+optional = true
+
+[tool.poetry.group.tests.dependencies]
+pytest = "^8.3.2"
+pytest-cov = "^5.0.0"
+
+[tool.ruff]
+lint.select = ["ALL"]
+lint.ignore = [
+    "PLR0913",
+    "E401", # multiple imports on one line
+    "D203",  # no blank line before class
+    "D213",  # multi line summary second line
+]
+line-length = 120
+# preview = true
+show-fixes = true
+src = ["src", ]
+target-version = "py310"
+
+
+[tool.ruff-lint.flake8-quotes]
+docstring-quotes = "double"
+multiline-quotes = "double"
+
+[tool.pylint.similarity]
+ignore-comments = true
+ignore-docstrings = true
+ignore-imports = true
+ignore-signatures = true
+min-similarity-lines = 5
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = [
+    "F401",  # unused import
+    "F403",  # undefined local with import star
+    "F405",  #  undefined local with import star usage
+]
+"tests/*" = [
+    "ANN",  # flake8-annotations
+    "ARG",  # flake8-unused-arguments
+    "INP001",  # implicit namespace package
+    "S101", # use of assert detected
+    "D100",  # missing docstring in public module
+    "D103",  # missing docstring in public function
+]
+
+
+[tool.ruff.lint.pylint]
+max-args = 15
+max-branches = 20
+max-returns = 10
+max-statements = 80
+
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
