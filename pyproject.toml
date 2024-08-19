@@ -40,7 +40,9 @@ jupytext = "^1.14.5"
 nbconvert = "^7.7.3"
 seaborn = "^0.13.2"
 loguru = "^0.7.0"
-continuiti = {git = "https://github.com/aai-institute/continuiti.git", rev = "228802be4f1954b2334e2e343e3d1116c3a666c6"}
+continuiti = {git = "https://github.com/aai-institute/continuiti.git", rev = "9f085396024071c6930da57ea6efb12b78c4a491"}
+hydra-core = "^1.3.2"
+nos = {git = "https://github.com/JakobEliasWagner/NeuralOperators.git", rev = "762f998cdcb8d6b130eb6d12ddc9db867f15c403"}
 
 [tool.poetry.group.dev]
 optional = true
