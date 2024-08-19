@@ -1,0 +1,10 @@
+architecture:
+  _target_: continuiti.operators.deep_cat_operator.DeepCatOperator
+
+parameter_space:
+  branch_width: [16, 96]
+  branch_depth: [4, 32]
+  trunk_width: [16, 96]
+  trunk_depth: [4, 32]
+  cat_net_width: [16, 96]
+  cat_net_depth: [4, 32]

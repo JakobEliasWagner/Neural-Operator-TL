@@ -1,0 +1,17 @@
+dataset:
+  _target_: nos.data.transmission_loss.TLDatasetCompact
+  path:
+    _target_: pathlib.Path
+    _args_:
+      - data/2024-08-19_16-36-39_transmission_loss_dataset.csv
+
+training:
+  epochs: [200, 1000]
+  lr: [1e-4, 1e-3]
+  batch_size: [1, 32]
+
+hydra:
+  mode: MULTIRUN
+  sweeper:
+    params:
+      +operator: deep_neural_operator, deep_cat_operator
