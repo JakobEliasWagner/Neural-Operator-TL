@@ -3,6 +3,6 @@
 _extended_summary_.
 """
 
-from notl.rff_fno import RFFFourierNeuralOperator
+from notl.encoded_fno import EncodedFourierNeuralOperator, Encoder, RFFEncoder, SineEncoder
 
-__all__ = ["RFFFourierNeuralOperator"]
+__all__ = ["RFFFourierNeuralOperator", "EncodedFourierNeuralOperator", "Encoder", "SineEncoder", "RFFEncoder"]

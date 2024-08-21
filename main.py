@@ -6,6 +6,7 @@ import torch
 from continuiti.operators import DeepNeuralOperator
 from loguru import logger
 from nos.data import TLDatasetCompact
+from notl import EncodedFourierNeuralOperator, RFFEncoder
 from torch.utils.data import DataLoader, random_split
 
 
@@ -25,7 +26,10 @@ def main(epochs: int = 500, lr: float = 1e-3) -> None:
     train_dataset, val_dataset = random_split(dataset, [0.9, 0.1])
 
     # operator
-    operator = DeepNeuralOperator(shapes=dataset.shapes, width=32, depth=16).to(device)
+    # operator = DeepNeuralOperator(shapes=dataset.shapes, width=32, depth=16).to(device)
+    operator = EncodedFourierNeuralOperator(
+        shapes=dataset.shapes, encoding_size=256, depth=8, width=10, encoder=RFFEncoder(1., 256), act=torch.nn.ReLU()
+    ).to(device)
     logger.info(f"Initialized {operator.__class__.__name__}.")
     logger.info(f"Model has {sum(p.numel() for p in operator.parameters() if p.requires_grad)} trainable parameters.")
 
@@ -95,9 +99,9 @@ def main(epochs: int = 500, lr: float = 1e-3) -> None:
 
             if avg_val_loss < best_val_loss:
                 logger.info(f"Saving new best operator with val loss {avg_val_loss:.2E} in epoch {epoch}.")
-                torch.save(operator, best_dir.joinpath("operator.pt"))
+                torch.save(operator.state_dict(), best_dir.joinpath("operator.pt"))
                 best_val_loss = avg_val_loss
-        torch.save(operator, last_dir.joinpath("operator.pt"))
+        torch.save(operator.state_dict(), last_dir.joinpath("operator.pt"))
         logger.info(f"Finished training for {epochs} epochs.")
         logger.info(f"Best validation loss: {best_val_loss:.2E}.")
 
