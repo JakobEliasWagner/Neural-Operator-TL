@@ -1,0 +1,6 @@
+architecture:
+  _target_: notl.encoded_fno.EncodedFourierNeuralOperator
+
+parameter_space:
+  width: [4, 16]
+  depth: [4, 12]

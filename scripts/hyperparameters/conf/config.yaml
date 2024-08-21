@@ -3,7 +3,7 @@ dataset:
   path:
     _target_: pathlib.Path
     _args_:
-      - data/2024-08-19_16-36-39_transmission_loss_dataset.csv
+      - data/smooth.csv
 
 training:
   epochs: [200, 1000]
@@ -14,4 +14,4 @@ hydra:
   mode: MULTIRUN
   sweeper:
     params:
-      +operator: deep_neural_operator, deep_cat_operator
+      +operator: encoded_fourier_neural_operator, deep_neural_operator, deep_cat_operator, deep_o_net
