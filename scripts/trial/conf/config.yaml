@@ -1,0 +1,17 @@
+dataset:
+  _target_: nos.data.transmission_loss.TLDatasetCompact
+  path:
+    _target_: pathlib.Path
+    _args_:
+      - data/smooth.csv
+
+training:
+  epochs: 100
+  lr: 1e-3
+  n_runs: 1
+
+hydra:
+  mode: MULTIRUN
+  sweeper:
+    params:
+      +operator: encoded_fourier_neural_operator, deep_neural_operator, deep_cat_operator, deep_o_net
