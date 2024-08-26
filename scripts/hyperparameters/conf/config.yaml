@@ -6,12 +6,10 @@ dataset:
       - data/smooth.csv
 
 training:
-  epochs: [200, 1000]
-  lr: [1e-4, 1e-3]
   batch_size: [1, 32]
 
 hydra:
   mode: MULTIRUN
   sweeper:
     params:
-      +operator: encoded_fourier_neural_operator, deep_neural_operator, deep_cat_operator, deep_o_net
+      +operator: deep_o_net, deep_neural_operator, deep_cat_operator, encoded_fourier_neural_operator

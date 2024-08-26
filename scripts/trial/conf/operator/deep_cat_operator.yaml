@@ -1,11 +1,11 @@
 architecture:
-  _target_: continuiti.operators.deep_cat_operator.DeepCatOperator
-  branch_width: 16
-  branch_depth: 4
-  trunk_width: 16
-  trunk_depth: 4
-  cat_net_width: 16
-  cat_net_depth: 4
+  _target_: continuiti.operators.DeepCatOperator
+  branch_width: 48
+  branch_depth: 8
+  trunk_width: 48
+  trunk_depth: 8
+  cat_net_width: 48
+  cat_net_depth: 32
 
 hyperparameter:
   batch_size: 20

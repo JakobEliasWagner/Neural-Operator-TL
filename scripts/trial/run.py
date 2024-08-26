@@ -1,5 +1,4 @@
 import pathlib
-import sys
 
 import hydra
 import mlflow
@@ -22,14 +21,14 @@ def main(cfg: DictConfig) -> None:  # noqa: D103
     logger.info(f"Running on {device}.")
 
     # multiple runs with reproducible seeds
-    for run_id in range(cfg.training.n_runs):
+    for run_id in range(cfg.training.start_seed, cfg.training.end_seed):
         logger.info("-" * 10, f"Starting run {run_id}", "-" * 10)
 
         seed = run_id  # reproducible
         torch.manual_seed(seed)
 
         # dataset
-        dataset = hydra.utils.instantiate(cfg.dataset)
+        dataset = hydra.utils.instantiate(cfg.dataset, v_transform="normalize")
         train_dataset, val_dataset = random_split(dataset, [0.9, 0.1])
         logger.info(f"Loaded dataset from {cfg.dataset.path} with {dataset.x.size(0)} observations.")
 
@@ -90,7 +89,8 @@ def main(cfg: DictConfig) -> None:  # noqa: D103
                         x, u, y, v = x.to(device), u.to(device), y.to(device), v.to(device)
                         out = operator(x, u, y)
 
-                        out_u, v_u = dataset.transform["v"].undo(out), dataset.transform["v"].undo(v)
+                        out_u, v_u = dataset.transform["v"].undo(out.detach().cpu()), dataset.transform["v"].undo(
+                            v.detach().cpu())
 
                         loss = criterion(v, out)
                         loss_u = criterion(v_u, out_u)

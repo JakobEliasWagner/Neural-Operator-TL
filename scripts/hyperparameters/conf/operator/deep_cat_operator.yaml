@@ -6,5 +6,5 @@ parameter_space:
   branch_depth: [4, 16]
   trunk_width: [32, 64]
   trunk_depth: [4, 16]
-  cat_net_width: [32, 64]
+  cat_net_width: [32, 96]
   cat_net_depth: [16, 32]

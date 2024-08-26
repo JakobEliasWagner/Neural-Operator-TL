@@ -1,15 +1,18 @@
 import argparse
 import pathlib
 from types import ModuleType
+from collections import defaultdict
+import csv
+import pandas as pd
 
 import continuiti
-import matplotlib.pyplot as plt
 import notl  # noqa: F401
 import torch
 import torch.utils
 import torch.utils.data
 import yaml
 from nos.data import TLDatasetCompact
+from continuiti.transforms import Normalize
 
 
 class UnknownOperatorModule(Exception):
@@ -25,7 +28,7 @@ def get_args() -> argparse.Namespace:
     parser.add_argument(
         "--test-csv",
         type=str,
-        default="data/test_smooth.csv",
+        default="data/com.csv",
         required=False,
     )
     parser.add_argument(
@@ -34,7 +37,6 @@ def get_args() -> argparse.Namespace:
         default="data/smooth.csv",
         required=False,
     )
-    parser.add_argument("--n-plots", type=int, default=2, required=False)
 
     return parser.parse_args()
 
@@ -52,9 +54,15 @@ def main(args: argparse.Namespace | None = None) -> None:
     if args is None:
         args = get_args()
 
+    out_dir = pathlib.Path(args.out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
     # dataset
-    train_dataset = TLDatasetCompact(pathlib.Path(args.train_csv), n_samples=args.n_plots)
-    dataset = TLDatasetCompact(pathlib.Path(args.test_csv), n_samples=args.n_plots)
+    train_dataset = TLDatasetCompact(pathlib.Path(args.train_csv))
+    v_mean = torch.mean(train_dataset.v)
+    v_std = torch.std(train_dataset.v)
+    train_dataset.transform["v"] = Normalize(v_mean.reshape(1, 1), v_std.reshape(1, 1))
+    dataset = TLDatasetCompact(pathlib.Path(args.test_csv), n_samples=1)
     dataset.transform = train_dataset.transform
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=1)
 
@@ -62,6 +70,7 @@ def main(args: argparse.Namespace | None = None) -> None:
     multirun_dir = pathlib.Path(args.run_dir)
 
     # different architectures
+    results = defaultdict(dict)
     for operator_dir in multirun_dir.iterdir():
         if not operator_dir.is_dir():
             # multi-run yaml
@@ -113,22 +122,22 @@ def main(args: argparse.Namespace | None = None) -> None:
         vs_t = torch.stack(vs)
         outs_t = torch.stack(outs)
 
-        squared_error = (outs_t - vs_t) ** 2
-        squared_error = torch.mean(squared_error.flatten(-2, -1), dim=-1)
+        # standard deviation
+        mean = torch.mean(outs_t, dim=0, keepdim=True)
+        n = outs_t.size(0)
+        s = torch.sqrt(torch.sum((outs_t - mean) ** 2, dim=0, keepdim=True) / (n - 1))
+        c_4 = 1 - 1 / (4 * n) - 7 / (32 * n ** 2) - 19 / (128 * n ** 3)  # discarding terms of order O(ne-4) or smaller
 
-        for tst_sample_id in range(squared_error.size(1)):
-            median, median_id = torch.median(squared_error, dim=0)
+        # variance
+        std = s / c_4
 
-            fig, ax = plt.subplots()
-
-            ax.plot(outs_t[median_id, tst_sample_id, 0, :], ys_t[median_id, tst_sample_id, 0, :] / 1e3, "k-")
-            ax.plot(vs_t[median_id, tst_sample_id, 0, :], ys_t[median_id, tst_sample_id, 0, :] / 1e3, "g--")
-
-            ax.set_xlim(-100, 10)
-            ax.set_ylim(2, 20)
-
-            fig.tight_layout()
-            plt.show()
+        df = pd.DataFrame.from_dict({
+            "std": std.squeeze().tolist(),
+            "mean": mean.squeeze().tolist(),
+            "y": ys_t[0, 0, 0, :].tolist(),
+            "v": vs_t[0, 0, 0, :].tolist()
+        })
+        df.to_csv(out_dir.joinpath(f"com_{class_name}.csv"), index=False)
 
 
 if __name__ == "__main__":

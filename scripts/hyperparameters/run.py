@@ -6,6 +6,7 @@ from optuna.storages import RetryFailedTrialCallback
 from torch.utils.data import DataLoader, random_split
 
 EPOCHS = 500
+LR = 1e-3
 
 
 @hydra.main(version_base=None, config_path="conf/", config_name="config")
@@ -17,7 +18,7 @@ def main(cfg: DictConfig) -> None:
     dataset = hydra.utils.instantiate(cfg.dataset)
     train_dataset, val_dataset = random_split(dataset, [0.9, 0.1])
 
-    def objective(trial) -> None:  # noqa: ANN001
+    def objective(trial):  # noqa: ANN001
         """_summary_.
 
         _extended_summary_
@@ -36,7 +37,7 @@ def main(cfg: DictConfig) -> None:
         operator = hydra.utils.instantiate(cfg.operator.architecture, shapes=dataset.shapes, **op_param).to(device)
 
         # optimizer
-        lr = trial.suggest_float("lr", cfg.training.lr[0], cfg.training.lr[1], log=True)
+        lr = 1e-3
         optimizer = torch.optim.Adam(operator.parameters(), lr=lr)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=EPOCHS, eta_min=lr * 1e-2)
 
@@ -44,8 +45,8 @@ def main(cfg: DictConfig) -> None:
 
         # training
         bs = trial.suggest_int("batch_size", cfg.training.batch_size[0], cfg.training.batch_size[1])
-
         train_loader, val_loader = DataLoader(train_dataset, batch_size=bs), DataLoader(val_dataset, batch_size=bs)
+        avg_val_loss: float = torch.inf
 
         for epoch in range(EPOCHS):
             operator.train()

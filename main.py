@@ -3,9 +3,10 @@ import pathlib
 
 import mlflow
 import torch
-from continuiti.operators import DeepNeuralOperator
+from continuiti.operators import DeepCatOperator, DeepONet
 from loguru import logger
 from nos.data import TLDatasetCompact
+from continuiti.transforms import Normalize
 from notl import EncodedFourierNeuralOperator, RFFEncoder
 from torch.utils.data import DataLoader, random_split
 
@@ -21,20 +22,23 @@ def main(epochs: int = 500, lr: float = 1e-3) -> None:
     # path = pathlib.Path("data/2024-08-19_16-36-39_transmission_loss_dataset.csv")
     path = pathlib.Path("data/smooth.csv")
 
-    dataset = TLDatasetCompact(path, n_samples=-1)
+    dataset = TLDatasetCompact(path, n_samples=-1, v_transform="normalize")
     logger.info(f"Successfully loaded dataset from {path}.")
     train_dataset, val_dataset = random_split(dataset, [0.9, 0.1])
 
     # operator
-    # operator = DeepNeuralOperator(shapes=dataset.shapes, width=32, depth=16).to(device)
-    operator = EncodedFourierNeuralOperator(
-        shapes=dataset.shapes, encoding_size=256, depth=8, width=10, encoder=RFFEncoder(1., 256), act=torch.nn.ReLU()
+    operator = DeepONet(
+        shapes=dataset.shapes,
+        branch_width=48,
+        branch_depth=24,
+        trunk_width=48,
+        trunk_depth=28,
+        basis_functions=52
     ).to(device)
     logger.info(f"Initialized {operator.__class__.__name__}.")
     logger.info(f"Model has {sum(p.numel() for p in operator.parameters() if p.requires_grad)} trainable parameters.")
 
     # optimizer
-    lr = 1e-3
     optimizer = torch.optim.Adam(operator.parameters(), lr=lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=epochs, eta_min=lr * 1e-2)
 
@@ -54,7 +58,7 @@ def main(epochs: int = 500, lr: float = 1e-3) -> None:
     last_dir.mkdir(exist_ok=True, parents=True)
 
     # training
-    train_loader, val_loader = DataLoader(train_dataset, batch_size=16), DataLoader(val_dataset, batch_size=16)
+    train_loader, val_loader = DataLoader(train_dataset, batch_size=4), DataLoader(val_dataset, batch_size=4)
     best_val_loss = torch.inf
 
     logger.info(f"Starting training for {epochs} epochs.")
@@ -81,7 +85,7 @@ def main(epochs: int = 500, lr: float = 1e-3) -> None:
                     x, u, y, v = x.to(device), u.to(device), y.to(device), v.to(device)
                     out = operator(x, u, y)
 
-                    out_u, v_u = dataset.transform["v"].undo(out), dataset.transform["v"].undo(v)
+                    out_u, v_u = dataset.transform["v"].undo(out.detach().cpu()), dataset.transform["v"].undo(v.detach().cpu())
 
                     loss = criterion(v, out)
                     loss_u = criterion(v_u, out_u)

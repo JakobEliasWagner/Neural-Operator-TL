@@ -2,5 +2,5 @@ architecture:
   _target_: continuiti.operators.dno.DeepNeuralOperator
 
 parameter_space:
-  width: [16, 96]
-  depth: [4, 64]
+  width: [32, 96]
+  depth: [4, 48]

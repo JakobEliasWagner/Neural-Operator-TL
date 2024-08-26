@@ -42,10 +42,11 @@ jupytext = "^1.14.5"
 nbconvert = "^7.7.3"
 seaborn = "^0.13.2"
 loguru = "^0.7.0"
-continuiti = {git = "https://github.com/aai-institute/continuiti.git", rev = "9f085396024071c6930da57ea6efb12b78c4a491"}
+continuiti = "0.2.0"
 hydra-core = "^1.3.2"
-nos = {git = "https://github.com/JakobEliasWagner/NeuralOperators.git", rev = "4ab16bec3d4734e5cf340086f87cb9f7fdf38ac1"}
+nos = {git = "https://github.com/JakobEliasWagner/NeuralOperators.git", rev = "a2ac2d4b73f57631b29d1615e8132a8a7da5ed5c"}
 random-fourier-features-pytorch = "^1.0.1"
+optuna-dashboard = "^0.16.0"
 
 [tool.poetry.group.dev]
 optional = true
