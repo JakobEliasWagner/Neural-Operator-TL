@@ -8,10 +8,11 @@ import torch
 import torch.utils
 import torch.utils.data
 import yaml
-from tqdm import tqdm
 from nos.data import TLDatasetCompact
 from continuiti.operators import Operator
 from continuiti.transforms import Normalize
+from scipy.stats import bootstrap
+import numpy as np
 
 
 class UnknownOperatorModule(Exception):
@@ -21,18 +22,16 @@ class UnknownOperatorModule(Exception):
 
 def proc_time(bs: int, es: int, model: Operator, n_iter: int = 100, ):
     model.eval()
-    torch.cuda.synchronize()
 
     x = torch.rand(bs, 3, 1, device=torch.device("cuda"))
     u = torch.rand(bs, 3, 1, device=torch.device("cuda"))
     y = torch.rand(bs, 1, es, device=torch.device("cuda"))
 
     start = time.time()
-    with torch.inference_mode():
-        for _ in tqdm(range(n_iter)):
+    with torch.inference_mode(), torch.no_grad():
+        for _ in range(n_iter):
             model(x, u, y)
     delta_t = time.time() - start
-    torch.cuda.synchronize()
     return bs * n_iter * es / delta_t
 
 
@@ -56,17 +55,10 @@ def find_max_batch_size(model: Operator, evaluations: int = 256, initial_batch_s
 
     def can_allocate(bts: int):
         try:
-            with torch.inference_mode():
-                x = torch.rand(bts, 3, 1, device=torch.device("cuda"))
-                u = torch.rand(bts, 3, 1, device=torch.device("cuda"))
-                y = torch.rand(bts, 1, evaluations, device=torch.device("cuda"))
-                model(x, u, y)
+            proc_time(bts, evaluations, model, n_iter=1)
             return True
-        except RuntimeError as e:
-            if 'CUDA out of memory' in str(e):
-                return False
-            else:
-                raise e
+        except RuntimeError:
+            return False
 
     low = initial_batch_size
     high = None
@@ -87,6 +79,7 @@ def find_max_batch_size(model: Operator, evaluations: int = 256, initial_batch_s
         if high is not None and low > high:
             break
 
+    torch.cuda.empty_cache()
     return found_batch_size
 
 
@@ -97,13 +90,13 @@ def get_args() -> argparse.Namespace:
     parser.add_argument(
         "--test-csv",
         type=str,
-        default="data/test_smooth.csv",
+        default="data/updated_test.csv",
         required=False,
     )
     parser.add_argument(
         "--train-csv",
         type=str,
-        default="data/smooth.csv",
+        default="data/updated.csv",
         required=False,
     )
 
@@ -123,13 +116,11 @@ def main(args: argparse.Namespace | None = None) -> None:
     if args is None:
         args = get_args()
 
+    torch.set_float32_matmul_precision('high')
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # dataset
-    train_dataset = TLDatasetCompact(pathlib.Path(args.train_csv))
-    v_mean = torch.mean(train_dataset.v)
-    v_std = torch.std(train_dataset.v)
-    train_dataset.transform["v"] = Normalize(v_mean.reshape(1, 1), v_std.reshape(1, 1))
+    train_dataset = TLDatasetCompact(pathlib.Path(args.train_csv), v_transform="normalize")
     dataset = TLDatasetCompact(pathlib.Path(args.test_csv))
     dataset.transform = train_dataset.transform
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=1)
@@ -142,25 +133,6 @@ def main(args: argparse.Namespace | None = None) -> None:
         if not operator_dir.is_dir():
             # multi-run yaml
             continue
-        operator_conf_path = operator_dir.joinpath("config.yaml")  # one specific configuration
-        with operator_conf_path.open("r") as file:
-            operator_conf = yaml.safe_load(file)
-        operator_target = operator_conf["operator"]["architecture"]["_target_"].split(".")
-        package = operator_target[0]
-        class_name = operator_target[-1]
-
-        if class_name != "DeepNeuralOperator":
-            continue
-
-        operator_module: ModuleType
-        if package == "continuiti":
-            operator_module = __import__("continuiti.operators", fromlist=["co"])
-        elif package == "notl":
-            operator_module = __import__("notl")
-        else:
-            raise UnknownOperatorModule(package)
-        operator_class = getattr(operator_module, class_name)
-        operator_args = {k: v for k, v in operator_conf["operator"]["architecture"].items() if k != "_target_"}
 
         best_path = operator_dir.joinpath("best")
 
@@ -171,11 +143,9 @@ def main(args: argparse.Namespace | None = None) -> None:
             run_ys = []
             run_vs = []
             run_outs = []
-            operator: continuiti.operators.Operator = operator_class(dataset.shapes, **operator_args)
-            operator.load_state_dict(torch.load(run_dir.joinpath("operator.pt")))
+            operator = notl.load_run_operator(run_dir=run_dir, dataset_shapes=dataset.shapes, run_id=run_dir.name)
 
             operator.to(device)
-            operator = torch.compile(operator)
             operator.eval()
             with torch.no_grad():
                 for x, u, y, v in dataloader:
@@ -195,18 +165,24 @@ def main(args: argparse.Namespace | None = None) -> None:
         outs_t = torch.stack(outs)
 
         squared_error = (vs_t - outs_t) ** 2
-        mean = torch.mean(squared_error).item()
-        std = torch.std(squared_error).item()
-        print("-" * 10, class_name, "-" * 10)
-        print(sum([p.numel() for p in operator.parameters() if p.requires_grad]))
-        print("mean:\t", mean)
-        print("std:\t", std)
+        relative_squared_error = squared_error / torch.mean(vs_t ** 2)
 
-        bs = find_max_batch_size(operator, evaluations=256, initial_batch_size=32, max_iterations=2 ** 9)
+        run_rmse = torch.mean(relative_squared_error.flatten(1, -1), dim=1)
+        ci = bootstrap((run_rmse.numpy(),), np.mean)
+
+        print("-" * 10, operator.__class__.__name__, "-" * 10)
+        print(sum([p.numel() for p in operator.parameters() if p.requires_grad]))
+
+        print("MEAN:\t", torch.mean(relative_squared_error).item())
+        print("STD:\t", torch.std(relative_squared_error).item())
+        print("ci:\t", ci.confidence_interval)
+
+        """bs = find_max_batch_size(operator, evaluations=256, initial_batch_size=2**14, max_iterations=2 ** 9)
         print(f"Bs: {bs}")
 
         pt = proc_time(bs, 256, operator, n_iter=10)
         print("pt:\t", pt)
+        print("Speedup:\t", pt/11.9)"""
 
 
 if __name__ == "__main__":
