@@ -1,26 +1,35 @@
 import argparse
 import pathlib
-from types import ModuleType
 import time
-import continuiti
+
 import notl  # noqa: F401
+import numpy as np
 import torch
 import torch.utils
 import torch.utils.data
-import yaml
-from nos.data import TLDatasetCompact
 from continuiti.operators import Operator
-from continuiti.transforms import Normalize
+from nos.data import TLDatasetCompact
 from scipy.stats import bootstrap
-import numpy as np
 
 
-class UnknownOperatorModule(Exception):
-    def __init__(self, module_name):
-        super().__init__(f"Unknown operator module {module_name}.")
+def proc_time(
+    bs: int,
+    es: int,
+    model: Operator,
+    n_iter: int = 100,
+) -> float:
+    """Measure throughput by passing the entire dataset through the operator multiple times.
 
+    Args:
+        bs (int): Batch size.
+        es (int): Evaluation tensor size.
+        model (Operator): Operator.
+        n_iter (int, optional): Number of iterations. Defaults to 100.
 
-def proc_time(bs: int, es: int, model: Operator, n_iter: int = 100, ):
+    Returns:
+        float: Throughput for every sample.
+
+    """
     model.eval()
 
     x = torch.rand(bs, 3, 1, device=torch.device("cuda"))
@@ -35,40 +44,41 @@ def proc_time(bs: int, es: int, model: Operator, n_iter: int = 100, ):
     return bs * n_iter * es / delta_t
 
 
-def find_max_batch_size(model: Operator, evaluations: int = 256, initial_batch_size: int = 32,
-                        max_iterations: int = 1024):
-    """
-    Finds the maximum batch size that fits into GPU memory without causing a CUDA out of memory error.
+def find_max_batch_size(
+    model: Operator, evaluations: int = 256, initial_batch_size: int = 32, max_iterations: int = 1024
+) -> int:
+    """Find the maximum batch size that fits into GPU memory without causing a CUDA out of memory error.
 
-    Parameters:
-    model (Operator): The neural operator model to test.
-    evaluations (int): The number of evaluations in one observation.
-    initial_batch_size (int): The starting batch size to test.
-    max_iterations (int): The maximum number of iterations for the binary search.
+    Args:
+        model (Operator): The neural operator model to test.
+        evaluations (int): The number of evaluations in one observation.
+        initial_batch_size (int): The starting batch size to test.
+        max_iterations (int): The maximum number of iterations for the binary search.
 
     Returns:
-    int: The maximum batch size that fits into GPU memory.
+        int: The maximum batch size that fits into GPU memory.
+
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
     model.eval()
 
-    def can_allocate(bts: int):
+    def can_allocate(bts: int) -> bool:
+        """Test if batch size can be allocated."""
+        can_allocate: bool
         try:
             proc_time(bts, evaluations, model, n_iter=1)
-            return True
+            can_allocate = True
         except RuntimeError:
-            return False
+            can_allocate = False
+        return can_allocate
 
     low = initial_batch_size
     high = None
     found_batch_size = low
 
     for _ in range(max_iterations):
-        if high is None:
-            batch_size = low * 2
-        else:
-            batch_size = (low + high) // 2
+        batch_size = low * 2 if high is None else (low + high) // 2
 
         if can_allocate(batch_size):
             found_batch_size = batch_size
@@ -104,19 +114,17 @@ def get_args() -> argparse.Namespace:
 
 
 def main(args: argparse.Namespace | None = None) -> None:
-    """_summary_.
-
-    _extended_summary_
+    """Evaluate operators for given arguments.
 
     Args:
     ----
-        args (_type_, optional): _description_. Defaults to None.
+        args (_type_, optional): Command line arguments. Defaults to None.
 
     """
     if args is None:
         args = get_args()
 
-    torch.set_float32_matmul_precision('high')
+    torch.set_float32_matmul_precision("high")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # dataset
@@ -149,11 +157,11 @@ def main(args: argparse.Namespace | None = None) -> None:
             operator.eval()
             with torch.no_grad():
                 for x, u, y, v in dataloader:
-                    x, u, y = x.to(device), u.to(device), y.to(device)
-                    out = operator(x, u, y)
+                    xd, ud, yd = x.to(device), u.to(device), y.to(device)
+                    out = operator(xd, ud, yd)
 
                     v_u, out_u = dataset.transform["v"].undo(v), dataset.transform["v"].undo(out.detach().cpu())
-                    y_u = dataset.transform["y"].undo(y.detach().cpu())
+                    y_u = dataset.transform["y"].undo(yd.detach().cpu())
 
                     run_ys.append(y_u)
                     run_vs.append(v_u)
@@ -165,7 +173,7 @@ def main(args: argparse.Namespace | None = None) -> None:
         outs_t = torch.stack(outs)
 
         squared_error = (vs_t - outs_t) ** 2
-        relative_squared_error = squared_error / torch.mean(vs_t ** 2)
+        relative_squared_error = squared_error / torch.mean(vs_t**2)
 
         run_rmse = torch.mean(relative_squared_error.flatten(1, -1), dim=1)
         ci = bootstrap((run_rmse.numpy(),), np.mean)
@@ -177,12 +185,12 @@ def main(args: argparse.Namespace | None = None) -> None:
         print("STD:\t", torch.std(relative_squared_error).item())
         print("ci:\t", ci.confidence_interval)
 
-        """bs = find_max_batch_size(operator, evaluations=256, initial_batch_size=2**14, max_iterations=2 ** 9)
+        bs = find_max_batch_size(operator, evaluations=256, initial_batch_size=2**14, max_iterations=2**9)
         print(f"Bs: {bs}")
 
         pt = proc_time(bs, 256, operator, n_iter=10)
         print("pt:\t", pt)
-        print("Speedup:\t", pt/11.9)"""
+        print("Speedup:\t", pt / 11.9)
 
 
 if __name__ == "__main__":
