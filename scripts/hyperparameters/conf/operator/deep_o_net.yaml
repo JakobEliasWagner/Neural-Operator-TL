@@ -1,9 +1,0 @@
-architecture:
-  _target_: continuiti.operators.deeponet.DeepONet
-
-parameter_space:
-  branch_width: [16, 96]
-  branch_depth: [16, 64]
-  trunk_width: [16, 64]
-  trunk_depth: [16, 64]
-  basis_functions: [32, 96]
