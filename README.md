@@ -31,5 +31,15 @@ to run the configuration we used.
 
 ## Evaluate Performance
 
+To evaluate the performance run
+```shell
+python trial/evaluate.py --run-dir=<dir>
+```
+using the correct run dir, containing models.
 
 ## Visualize
+To visualize the operators (csv)
+```shell
+python trial/visualize.py --run-dir=<dir>
+```
+using the correct run dir, containing the trained models.
