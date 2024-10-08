@@ -60,7 +60,7 @@ def main(cfg: DictConfig) -> None:  # noqa: D103
 
         # training
         batch_size = cfg.operator.hyperparameter.batch_size
-        train_loader = DataLoader(train_dataset, batch_size=batch_size)
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
         val_loader = DataLoader(val_dataset, batch_size=batch_size)
 
         best_val_loss = torch.inf

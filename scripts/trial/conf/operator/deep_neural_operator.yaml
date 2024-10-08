@@ -1,7 +1,7 @@
 architecture:
   _target_: continuiti.operators.dno.DeepNeuralOperator
-  width: 40
-  depth: 40
+  width: 56
+  depth: 32
 
 hyperparameter:
   batch_size: 20

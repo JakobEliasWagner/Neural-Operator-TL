@@ -1,10 +1,10 @@
 architecture:
   _target_: continuiti.operators.deeponet.DeepONet
-  branch_width: 32
-  branch_depth: 16
-  trunk_width: 24
-  trunk_depth: 22
-  basis_functions: 52
+  branch_width: 44
+  branch_depth: 24
+  trunk_width: 44
+  trunk_depth: 24
+  basis_functions: 64
 
 hyperparameter:
   batch_size: 4

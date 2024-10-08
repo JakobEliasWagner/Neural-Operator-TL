@@ -3,16 +3,16 @@ dataset:
   path:
     _target_: pathlib.Path
     _args_:
-      - data/smooth.csv
+      - data/data.csv
 
 training:
   epochs: 500
   lr: 1e-3
   start_seed: 0
-  end_seed: 5
+  end_seed: 10
 
 hydra:
   mode: MULTIRUN
   sweeper:
     params:
-      +operator: deep_cat_operator
+      +operator: deep_cat_operator,deep_neural_operator,deep_o_net,encoded_fourier_neural_operator

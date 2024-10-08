@@ -1,8 +1,8 @@
 architecture:
   _target_: notl.encoded_fno.EncodedFourierNeuralOperator
-  width: 10
-  depth: 8
+  width: 8
+  depth: 6
   encoding_size: 256
 
 hyperparameter:
-  batch_size: 1
+  batch_size: 4
