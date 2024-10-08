@@ -105,3 +105,13 @@ public/
 
 # Mac
 **/.DS_Store
+
+# hydra
+multirun/**
+*.db
+
+# out
+out/**
+
+# tensorboard
+/mlruns/**
